@@ -19,19 +19,30 @@ The application consists of a simple Node.js backend (`server.js`) using Express
 2. **Processing**: When you click an action button, the backend spawns a child process to run the `auto-editor` CLI tool against the video file. 
 3. **Serving**: The frontend continually polls the backend to update the status and provides a direct download link once the processed file is ready.
 
-## Requirements
+## Running with Docker (Recommended for others)
+
+If you have Docker installed, the easiest way to run the application with all its dependencies (Node, Python, FFmpeg, and Auto-Editor) is via `docker-compose`:
+
+```bash
+docker-compose up -d --build
+```
+The app will be available at `http://localhost:3000`. Your videos will be saved and processed in the mapped `uploads/` directory on your host machine.
+
+## Running Natively (Manual Setup)
+
+### Requirements
 
 - Node.js
 - `auto-editor` installed globally (e.g. `pipx install auto-editor` or `pip install auto-editor`)
 
-## Running the App
+### Setup
 
 ```bash
 # Install dependencies
 npm install
 
 # Start the server
-node server.js
+npm start
 ```
 
 The app will run at `http://localhost:3000`. You can optionally expose it securely using Tailscale:
