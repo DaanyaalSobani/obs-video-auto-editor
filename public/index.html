@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBS Video Auto-Editor</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; background: #f9f9f9; color: #333; }
+        h1 { margin-top: 0; color: #111; }
+        .dropzone { border: 2px dashed #bbb; border-radius: 8px; padding: 60px 40px; text-align: center; cursor: pointer; margin-bottom: 20px; background: #fff; transition: all 0.2s; font-size: 1.1em; color: #666; }
+        .dropzone:hover { border-color: #0366d6; background-color: #f1f8ff; color: #0366d6; }
+        .dropzone.dragover { border-color: #28a745; background-color: #e6ffed; color: #28a745; }
+        .status-bar { margin-bottom: 20px; padding: 15px; border-radius: 6px; display: none; }
+        .status-bar.info { background: #d1ecf1; color: #0c5460; display: block; }
+        .status-bar.error { background: #f8d7da; color: #721c24; display: block; }
+        .status-bar.success { background: #d4edda; color: #155724; display: block; }
+        .file-list { list-style: none; padding: 0; margin: 0; }
+        .file-item { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .file-name { font-weight: 500; word-break: break-all; margin-right: 15px; }
+        .actions { display: flex; gap: 8px; flex-shrink: 0; }
+        button, .btn { padding: 8px 12px; cursor: pointer; border: none; border-radius: 4px; font-size: 0.9em; font-weight: 500; text-decoration: none; display: inline-block; transition: background 0.2s; }
+        .btn-primary { background: #0366d6; color: white; }
+        .btn-primary:hover { background: #005cc5; }
+        .btn-secondary { background: #e1e4e8; color: #24292e; }
+        .btn-secondary:hover { background: #d1d5da; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        a.btn { box-sizing: border-box; text-align: center; }
+        .panel { background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body>
+    <h1>🎬 OBS Video Auto-Editor</h1>
+    <p>Upload your programming recordings here. The auto-editor will analyze the audio track and process the silent moments where you are reading or typing.</p>
+    
+    <div class="dropzone" id="dropzone">
+        📁 Drag & drop your video files here, or click to browse
+    </div>
+    <input type="file" id="fileInput" style="display: none;" accept="video/*">
+    
+    <div id="status" class="status-bar">Ready.</div>
+    
+    <div class="panel">
+        <h2 style="margin-top: 0;">Workspace Videos</h2>
+        <ul class="file-list" id="fileList"></ul>
+    </div>
+
+    <script>
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const status = document.getElementById('status');
+
+        function setStatus(msg, type = 'info') {
+            status.textContent = msg;
+            status.className = 'status-bar ' + type;
+        }
+
+        function getBaseUrl() {
+            let path = window.location.pathname;
+            if (!path.endsWith('/')) path += '/';
+            return path;
+        }
+
+        dropzone.onclick = () => fileInput.click();
+        dropzone.ondragover = (e) => { e.preventDefault(); dropzone.classList.add('dragover'); };
+        dropzone.ondragleave = () => dropzone.classList.remove('dragover');
+        dropzone.ondrop = (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) upload(e.dataTransfer.files[0]);
+        };
+        fileInput.onchange = () => { if (fileInput.files.length) upload(fileInput.files[0]); };
+
+        function upload(file) {
+            const fd = new FormData();
+            fd.append('video', file);
+            setStatus(`Uploading ${file.name}... Please wait.`, 'info');
+            
+            fetch(getBaseUrl() + 'upload', { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(res => { 
+                    setStatus(`Successfully uploaded ${file.name}!`, 'success'); 
+                    loadFiles(); 
+                })
+                .catch(e => { setStatus(`Upload failed: ${e.message}`, 'error'); });
+        }
+
+        function loadFiles() {
+            fetch(getBaseUrl() + 'files')
+                .then(r => r.json())
+                .then(res => {
+                    fileList.innerHTML = '';
+                    if (res.files.length === 0) {
+                        fileList.innerHTML = '<li style="color: #666; padding: 10px 0;">No videos found in the workspace.</li>';
+                        return;
+                    }
+                    
+                    // Sort descending so newest might be at the bottom or top depending on naming, let's just sort alphabetically
+                    res.files.sort().forEach(f => {
+                        const li = document.createElement('li');
+                        li.className = 'file-item';
+                        
+                        // Disable edit buttons for already edited files to avoid confusion
+                        const isEdited = f.includes('_cut.') || f.includes('_speedup.');
+                        const editButtons = isEdited ? 
+                            `<span style="color: #28a745; font-size: 0.9em; font-weight: 500; margin-right: 10px;">✓ Edited</span>` :
+                            `<button class="btn btn-primary" onclick="editFile('${f}', 'cut')" title="Removes silent parts entirely">✂️ Cut Silence</button>
+                             <button class="btn btn-secondary" onclick="editFile('${f}', 'speed')" title="Fast-forwards silent parts at 4x speed">⏩ Speed Up Silence</button>`;
+
+                        li.innerHTML = `
+                            <div class="file-name" title="${f}">${f}</div>
+                            <div class="actions">
+                                ${editButtons}
+                                <a href="${getBaseUrl()}uploads/${f}" class="btn btn-success" download>⬇️ Download</a>
+                            </div>
+                        `;
+                        fileList.appendChild(li);
+                    });
+                })
+                .catch(e => setStatus(`Failed to load files: ${e.message}`, 'error'));
+        }
+
+        function editFile(filename, mode) {
+            setStatus(`Processing "${filename}" (${mode === 'speed' ? 'Speed Up' : 'Cut'} mode)... This takes time, please wait!`, 'info');
+            fetch(getBaseUrl() + 'edit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename, mode })
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.error) setStatus(`Error processing video: ${res.error}`, 'error');
+                else { 
+                    setStatus(`Edit complete! Generated ${res.output}.`, 'success'); 
+                    loadFiles(); 
+                }
+            })
+            .catch(e => setStatus(`Processing error: ${e.message}`, 'error'));
+        }
+
+        // Initialize
+        loadFiles();
+    </script>
+</body>
+</html>
