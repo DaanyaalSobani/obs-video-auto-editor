@@ -1,8 +1,11 @@
 const express = require('express');
 const multer = require('multer');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+
+// Store progress logs per output filename
+const progressMap = {};
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -57,30 +60,73 @@ app.post('/edit', (req, res) => {
 
     const inputPath = path.join(UPLOADS_DIR, filename);
     const parsed = path.parse(filename);
-    
-    // Tag the file depending on the mode
     const suffix = mode === 'speed' ? 'speedup' : 'cut';
     const outputFilename = `${parsed.name}_${suffix}${parsed.ext}`;
     const outputPath = path.join(UPLOADS_DIR, outputFilename);
 
-    let command = `${AUTO_EDITOR_BIN} "${inputPath}" -o "${outputPath}"`;
+    const args = [inputPath, '-o', outputPath];
     if (mode === 'speed') {
-        command += ` --when-silent speed:4`;
+        args.push('--when-silent', 'speed:4');
     } else {
-        command += ` --margin 0.2s`;
+        args.push('--margin', '0.2s');
     }
 
-    console.log(`Running: ${command}`);
-    
-    // Auto-editor can take some time, execute asynchronously
-    exec(command, (error, stdout, stderr) => {
-        if (error) {
-            console.error(`Error: ${error.message}`);
-            return res.status(500).json({ error: stderr || error.message });
+    console.log(`Running: ${AUTO_EDITOR_BIN} ${args.join(' ')}`);
+    progressMap[outputFilename] = [];
+
+    const proc = spawn(AUTO_EDITOR_BIN, args);
+
+    const logLine = (line) => {
+        console.log(line);
+        if (progressMap[outputFilename]) progressMap[outputFilename].push(line);
+    };
+
+    proc.stdout.on('data', d => d.toString().split('\n').filter(Boolean).forEach(logLine));
+    proc.stderr.on('data', d => d.toString().split('\n').filter(Boolean).forEach(logLine));
+
+    // Respond immediately so the UI can start polling /progress
+    res.json({ success: true, output: outputFilename, processing: true });
+
+    proc.on('close', (code) => {
+        if (code === 0) {
+            scheduleCleanup(outputPath);
+            if (progressMap[outputFilename]) progressMap[outputFilename].push('__DONE__');
+        } else {
+            if (progressMap[outputFilename]) progressMap[outputFilename].push('__ERROR__');
         }
-        scheduleCleanup(outputPath);
-        res.json({ success: true, output: outputFilename });
     });
+});
+
+// SSE endpoint: streams progress lines for a given output filename
+app.get('/progress/:filename', (req, res) => {
+    const key = req.params.filename;
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    let index = 0;
+    const interval = setInterval(() => {
+        const lines = progressMap[key] || [];
+        while (index < lines.length) {
+            const line = lines[index++];
+            if (line === '__DONE__') {
+                res.write(`data: {"done":true}\n\n`);
+                clearInterval(interval);
+                delete progressMap[key];
+                return res.end();
+            }
+            if (line === '__ERROR__') {
+                res.write(`data: {"error":true}\n\n`);
+                clearInterval(interval);
+                delete progressMap[key];
+                return res.end();
+            }
+            res.write(`data: ${JSON.stringify({ line })}\n\n`);
+        }
+    }, 500);
+
+    req.on('close', () => clearInterval(interval));
 });
 
 // Error handler for Multer limits

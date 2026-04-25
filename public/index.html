@@ -26,6 +26,7 @@
         .btn-success { background: #28a745; color: white; }
         .btn-success:hover { background: #218838; }
         a.btn { box-sizing: border-box; text-align: center; }
+        .progress-log { background: #111; color: #0f0; font-family: monospace; font-size: 0.8em; padding: 12px; border-radius: 6px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; display: none; margin-top: 10px; }
         .panel { background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     </style>
 </head>
@@ -40,6 +41,7 @@
     
     <div id="status" class="status-bar">Ready.</div>
     
+    <div class="progress-log" id="progressLog"></div>
     <div class="panel">
         <h2 style="margin-top: 0;">Workspace Videos</h2>
         <ul class="file-list" id="fileList"></ul>
@@ -124,6 +126,12 @@
 
         function editFile(filename, mode) {
             setStatus(`Processing "${filename}" (${mode === 'speed' ? 'Speed Up' : 'Cut'} mode)... This takes time, please wait!`, 'info');
+            
+            // Show and clear the progress log
+            const log = document.getElementById('progressLog');
+            log.style.display = 'block';
+            log.textContent = '';
+
             fetch(getBaseUrl() + 'edit', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -131,11 +139,25 @@
             })
             .then(r => r.json())
             .then(res => {
-                if (res.error) setStatus(`Error processing video: ${res.error}`, 'error');
-                else { 
-                    setStatus(`Edit complete! Generated ${res.output}.`, 'success'); 
-                    loadFiles(); 
-                }
+                if (res.error) { setStatus(`Error processing video: ${res.error}`, 'error'); return; }
+
+                // Start streaming progress via SSE
+                const evtSource = new EventSource(getBaseUrl() + 'progress/' + encodeURIComponent(res.output));
+                evtSource.onmessage = (e) => {
+                    const data = JSON.parse(e.data);
+                    if (data.done) {
+                        evtSource.close();
+                        setStatus(`Edit complete! Generated ${res.output}.`, 'success');
+                        log.style.display = 'none';
+                        loadFiles();
+                    } else if (data.error) {
+                        evtSource.close();
+                        setStatus(`Processing failed. Check the log above for details.`, 'error');
+                    } else {
+                        log.textContent += data.line + '\n';
+                        log.scrollTop = log.scrollHeight;
+                    }
+                };
             })
             .catch(e => setStatus(`Processing error: ${e.message}`, 'error'));
         }
