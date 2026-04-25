@@ -15,9 +15,12 @@ RUN apt-get update && apt-get install -y \
     && apt-get install -y nodejs \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install auto-editor globally via pipx
+# Install auto-editor globally via pipx and pre-download its binary
 ENV PATH="/root/.local/bin:${PATH}"
 RUN pipx install auto-editor
+RUN ffmpeg -f lavfi -i anullsrc=r=44100:cl=mono -t 1 -q:a 9 /tmp/dummy.mp4 && \
+    auto-editor /tmp/dummy.mp4 -o /tmp/dummy_out.mp4 && \
+    rm -f /tmp/dummy.mp4 /tmp/dummy_out.mp4
 
 # Set up the app directory
 WORKDIR /app
