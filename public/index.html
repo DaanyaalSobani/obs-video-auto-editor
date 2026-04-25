@@ -80,6 +80,7 @@
             fetch(getBaseUrl() + 'upload', { method: 'POST', body: fd })
                 .then(r => r.json())
                 .then(res => { 
+                    if (res.error) return setStatus(`Upload failed: ${res.error}`, 'error');
                     setStatus(`Successfully uploaded ${file.name}!`, 'success'); 
                     loadFiles(); 
                 })

@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "prestart": "which auto-editor > /dev/null || pipx install auto-editor || pip install auto-editor",
+    "start": "node server.js",
+    "demo": "DEMO_MODE=true node server.js"
   },
   "keywords": [],
   "author": "",
