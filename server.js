@@ -34,6 +34,22 @@ const scheduleCleanup = (filePath) => {
     }
 };
 
+const sweepOldUploads = () => {
+    const cutoff = Date.now() - 10 * 60 * 1000;
+    fs.readdir(UPLOADS_DIR, (err, files) => {
+        if (err) return console.error(`[Demo] Sweep readdir failed: ${err.message}`);
+        files.filter(f => !f.startsWith('.')).forEach(f => {
+            const filePath = path.join(UPLOADS_DIR, f);
+            fs.stat(filePath, (statErr, stats) => {
+                if (statErr || !stats.isFile()) return;
+                if (stats.mtimeMs < cutoff) {
+                    fs.unlink(filePath, () => console.log(`[Demo] Sweep deleted ${filePath}`));
+                }
+            });
+        });
+    });
+};
+
 // Trust proxy for Tailscale
 app.set('trust proxy', true);
 
@@ -139,5 +155,9 @@ app.use((err, req, res, next) => {
 
 app.listen(port, () => {
     console.log(`Auto-editor web UI running at http://localhost:${port}`);
-    if (DEMO_MODE) console.log(`Running in DEMO MODE: 50MB upload limit, 10m file auto-delete`);
+    if (DEMO_MODE) {
+        console.log(`Running in DEMO MODE: 50MB upload limit, 10m file auto-delete`);
+        sweepOldUploads();
+        setInterval(sweepOldUploads, 5 * 60 * 1000);
+    }
 });
