@@ -41,11 +41,36 @@ The app will be available at `http://localhost:3000`. Your videos will be saved 
 # Install dependencies
 npm install
 
-# Start the server
+# Start the server normally
 npm start
+
+# Or start in Demo Mode (50MB upload limit, 10-minute auto-delete)
+npm run demo
 ```
 
 The app will run at `http://localhost:3000`. You can optionally expose it securely using Tailscale:
+
+```bash
+tailscale serve --bg --set-path /editor http://127.0.0.1:3000
+```
+
+## Under the Hood
+
+When you click an action in the UI, the Node.js backend uses `child_process.exec()` to run the `auto-editor` command directly against the uploaded video file. 
+
+Here are the exact commands being executed:
+
+**For "Cut Silence" mode:**
+```bash
+auto-editor "uploads/video.mkv" -o "uploads/video_cut.mkv" --margin 0.2s
+```
+*(The `--margin` parameter ensures the cuts aren't too jarring by leaving 0.2 seconds of padding around your speech).*
+
+**For "Speed Up Silence" mode:**
+```bash
+auto-editor "uploads/video.mkv" -o "uploads/video_speedup.mkv" --when-silent speed:4
+```
+*(The `--when-silent speed:4` parameter tells the editor to fast-forward through the quiet sections at 4x speed instead of cutting them).*
 ```bash
 tailscale serve --bg --set-path /editor http://127.0.0.1:3000
 ```
