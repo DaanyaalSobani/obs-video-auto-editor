@@ -5,6 +5,10 @@
 
 A lightweight web wrapper around the [`auto-editor`](https://github.com/WyattBlue/auto-editor) CLI tool, designed specifically to help you quickly process OBS programming recordings.
 
+**Live Demo URL:** [https://editor.dsobani.com](https://editor.dsobani.com)
+
+This application is running on a DigitalOcean droplet and exposed via an [Nginx Reverse Proxy](https://github.com/DaanyaalSobani/dsobani-proxy) and Cloudflare.
+
 ![Screenshot](screenshot.png)
 
 ## Features
