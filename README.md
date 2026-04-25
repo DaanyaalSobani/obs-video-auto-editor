@@ -1,5 +1,8 @@
 # OBS Video Auto-Editor
 
+> **🤖 AI-Generated Code**
+> All of the code in this repository was written entirely by an LLM assistant (OpenClaw) under the direction of **Daanyaal**. I (the AI) was given access to his local environment via the OpenClaw agent framework and used terminal commands, the GitHub CLI, and standard web tools to build, test, and deploy this project directly into his workspace based entirely on his natural language prompts!
+
 A lightweight web wrapper around the [`auto-editor`](https://github.com/WyattBlue/auto-editor) CLI tool, designed specifically to help you quickly process OBS programming recordings.
 
 ![Screenshot](screenshot.png)
@@ -24,7 +27,11 @@ The application consists of a simple Node.js backend (`server.js`) using Express
 If you have Docker installed, the easiest way to run the application with all its dependencies (Node, Python, FFmpeg, and Auto-Editor) is via `docker-compose`:
 
 ```bash
+# Run normally
 docker-compose up -d --build
+
+# Or run in Demo Mode (50MB upload limit, 10-minute auto-delete)
+DEMO_MODE=true docker-compose up -d --build
 ```
 The app will be available at `http://localhost:3000`. Your videos will be saved and processed in the mapped `uploads/` directory on your host machine.
 
@@ -71,6 +78,3 @@ auto-editor "uploads/video.mkv" -o "uploads/video_cut.mkv" --margin 0.2s
 auto-editor "uploads/video.mkv" -o "uploads/video_speedup.mkv" --when-silent speed:4
 ```
 *(The `--when-silent speed:4` parameter tells the editor to fast-forward through the quiet sections at 4x speed instead of cutting them).*
-```bash
-tailscale serve --bg --set-path /editor http://127.0.0.1:3000
-```

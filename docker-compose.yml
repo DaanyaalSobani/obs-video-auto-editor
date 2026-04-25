@@ -9,4 +9,5 @@ services:
       - ./uploads:/app/uploads
     environment:
       - PORT=3000
+      - DEMO_MODE=${DEMO_MODE:-false}
     restart: unless-stopped
