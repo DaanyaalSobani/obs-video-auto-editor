@@ -7,7 +7,7 @@ A lightweight web wrapper around the [`auto-editor`](https://github.com/WyattBlu
 
 **Live Demo URL:** [https://editor.dsobani.com](https://editor.dsobani.com)
 
-This application is running on a DigitalOcean droplet and exposed via an [Nginx Reverse Proxy](https://github.com/DaanyaalSobani/dsobani-proxy) and Cloudflare.
+This application is running on a DigitalOcean droplet and exposed via a private Nginx Reverse Proxy and Cloudflare.
 
 ![Screenshot](screenshot.png)
 
